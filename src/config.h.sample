@@ -1,0 +1,24 @@
+/// # Wi-Fi Config
+#define CONFIG_USING_REGULAR_WIFI 1
+#define __WIFI_SSID "*******"
+#define __WIFI_PASSWORD "12345678"
+// #define CONFIG_USING_ENTERPRISE_WIFI 1
+#define __ENTERPRISE_WIFI_SSID "****"
+#define __ENTERPRISE_WIFI_IDENTITY "********"
+#define __ENTERPRISE_WIFI_USERNAME "12345678"
+#define __ENTERPRISE_WIFI_PASSWORD "12345678"
+
+/// # OTA Firmware
+#define __OTA_PASSWORD "12345678"
+
+/// # MQTT Informations
+#define __MQTT_BROKER "mqtt.open.domain.org"
+#define __MQTT_TOPIC_CMD "SENSOR/dht11/cmd"
+#define __MQTT_TOPIC "SENSOR/dht11/A1"
+#define __MQTT_USERNAME "abcd1234"
+#define __MQTT_PASSWORD "12345678"
+#define __MQTT_PORT 1883
+#define __MQTT_WATCHDOG 10
+// Keep_Alive_Interval : 60
+
+#define __UPDATE_INTERVAL 20000

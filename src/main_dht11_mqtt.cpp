@@ -38,6 +38,18 @@ DHT dht11(DHT11_PIN, DHT11, 11);
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
 
+String sys_info() {
+  return  "{\"node\": \"" + client_id +
+          "\", \"ip\": \"" + WiFi.localIP().toString() + 
+          "\", \"gateway\": \"" + WiFi.gatewayIP().toString() +
+          "\", \"free_heap\": " + ESP.getFreeHeap() +
+          ", \"cpu_freq_mhz\": " + ESP.getCpuFreqMHz() +
+          ", \"update_interval\": " + __UPDATE_INTERVAL +
+          ", \"sdk_version\": \"" + system_get_sdk_version() +
+          "\", \"ota_hostname\": \"" + ArduinoOTA.getHostname() +
+          "\", \"boot_time_ms\": " + system_get_time() / 1000 +
+          "}";
+}
 
 #ifdef CONFIG_USING_ENTERPRISE_WIFI
 static void wifi_enterprise_connect_init(void);
@@ -113,7 +125,8 @@ void loop()
       temperature = dht11.readTemperature();
       mqtt_client.publish(String(mqtt_topic + String("/temperature")).c_str(), String(temperature).c_str()); 
       mqtt_client.publish(String(mqtt_topic + String("/humidity")).c_str(), String(humidity).c_str()); 
-    } else mqtt_client.publish((mqtt_topic + String("/error")).c_str(), "Can't read DHT11");
+    } else mqtt_client.publish((mqtt_topic + String("/error")).c_str(), 
+        "Can't read DHT11. Please check the hardware or use \"reboot\" and \"info\" under \"/cmd\" for further information.");
     last_update = millis();
   }
 }
@@ -126,6 +139,11 @@ void callback(char *topic, byte *payload, unsigned int length) {
     buffer += (char)payload[i];
   if (buffer == "reboot")
     ESP.restart();
+  else if (buffer == "info") {
+    bool mqtt_res = mqtt_client.publish(mqtt_topic, sys_info().c_str());
+    Serial.printf("%s\n", sys_info().c_str());
+    Serial.printf("Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
+    }
 }
 
 #ifdef CONFIG_USING_ENTERPRISE_WIFI
@@ -187,18 +205,10 @@ void mqtt_connect() {
     if (mqtt_watchdog == 0)
       ESP.restart();
   }
-  delay(1000);
-  // publish and subscribe
-  String client_online = "{\"node\": \"" + client_id +
-                          "\", \"ip\": \"" + WiFi.localIP().toString() + 
-                          "\", \"gateway\": \"" + WiFi.gatewayIP().toString() +
-                          "\", \"free_heap\": " + ESP.getFreeHeap() +
-                          ", \"update_interval\": " + __UPDATE_INTERVAL +
-                          ", \"sdk_version\": \"" + system_get_sdk_version() +
-                          "\", \"ota_hostname\": \"" + ArduinoOTA.getHostname() +
-                          "\"}";
-  mqtt_client.publish(mqtt_topic, client_online.c_str());
-  mqtt_client.subscribe(mqtt_topic);
+  bool mqtt_res = mqtt_client.publish(mqtt_topic, sys_info().c_str());
+  Serial.printf("%s\n", sys_info().c_str());
+  Serial.printf("Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
+  // mqtt_client.subscribe(mqtt_topic);
   mqtt_client.subscribe(__MQTT_TOPIC_CMD);
 }
 

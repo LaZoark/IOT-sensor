@@ -213,7 +213,7 @@ void mqtt_connect() {
   bool mqtt_res = mqtt_client.publish(mqtt_topic, sys_info().c_str());
   Serial.printf("%s\n", sys_info().c_str());
   Serial.printf("Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
-  // mqtt_client.subscribe(mqtt_topic);
+  mqtt_client.subscribe(mqtt_topic);
   mqtt_client.subscribe(__MQTT_TOPIC_CMD);
 }
 

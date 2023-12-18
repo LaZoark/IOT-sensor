@@ -32,8 +32,8 @@ const char *mqtt_username = __MQTT_USERNAME;
 const char *mqtt_password = __MQTT_PASSWORD;
 const int mqtt_port = __MQTT_PORT;
 int mqtt_watchdog = __MQTT_WATCHDOG;
+char macStr[13] = { 0 };
 
-// String client_id = "esp8266-InnoWorks-";
 String client_id = "esp8266-sensor-";
 DHT dht11(DHT11_PIN, DHT11, 11);
 WiFiClient espClient;
@@ -67,7 +67,7 @@ void setup()
 {
   uint8_t mac[6];
   WiFi.macAddress(mac);
-  char macStr[13] = { 0 };
+  // char macStr[13] = { 0 };
   sprintf(macStr, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   client_id += String(macStr);
 
@@ -124,9 +124,10 @@ void loop()
     if(dht11.read()) {
       humidity = dht11.readHumidity();
       temperature = dht11.readTemperature();
-      mqtt_client.publish(String(mqtt_topic + String("/temperature")).c_str(), String(temperature).c_str()); 
-      mqtt_client.publish(String(mqtt_topic + String("/humidity")).c_str(), String(humidity).c_str()); 
-    } else mqtt_client.publish((mqtt_topic + String("/error")).c_str(), 
+      mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/temperature")).c_str(), String(temperature).c_str()); 
+      mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/humidity")).c_str(), String(humidity).c_str()); 
+    } else 
+      mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/error")).c_str(), 
         "Can't read DHT11. Please check the hardware or use \"reboot\" and \"info\" under \"/cmd\" for further information.");
     last_update = millis();
   }
@@ -141,12 +142,12 @@ void callback(char *topic, byte *payload, unsigned int length) {
   if (buffer == "reboot")
     ESP.restart();
   else if (buffer == "info") {
-    bool mqtt_res = mqtt_client.publish(mqtt_topic, sys_info().c_str());
+    bool mqtt_res = mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), sys_info().c_str());
     Serial.printf("%s\n", sys_info().c_str());
     Serial.printf("Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
     }
   else if (buffer == "test") {
-    bool mqtt_res = mqtt_client.publish(mqtt_topic, "hello");
+    bool mqtt_res = mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), String("\"hello world\" from ["+client_id+"]").c_str());
     Serial.printf("[test] Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
     }
 }

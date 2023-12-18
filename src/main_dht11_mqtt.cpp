@@ -33,21 +33,22 @@ const char *mqtt_password = __MQTT_PASSWORD;
 const int mqtt_port = __MQTT_PORT;
 int mqtt_watchdog = __MQTT_WATCHDOG;
 
-String client_id = "esp8266-InnoWorks-";
+// String client_id = "esp8266-InnoWorks-";
+String client_id = "esp8266-sensor-";
 DHT dht11(DHT11_PIN, DHT11, 11);
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
 
 String sys_info() {
-  return  "{\"node\": \"" + client_id +
-          "\", \"ip\": \"" + WiFi.localIP().toString() + 
-          "\", \"gateway\": \"" + WiFi.gatewayIP().toString() +
-          "\", \"free_heap\": " + ESP.getFreeHeap() +
-          ", \"cpu_freq_mhz\": " + ESP.getCpuFreqMHz() +
-          ", \"update_interval\": " + __UPDATE_INTERVAL +
-          ", \"sdk_version\": \"" + system_get_sdk_version() +
-          "\", \"ota_hostname\": \"" + ArduinoOTA.getHostname() +
-          "\", \"boot_time_ms\": " + system_get_time() / 1000 +
+  return  "{\"node\":\"" + client_id + "\"" +
+          ",\"ip\":\"" + WiFi.localIP().toString() +  "\"" +
+          ",\"gateway\":\"" + WiFi.gatewayIP().toString() + "\"" +
+          ",\"free_heap\":" + ESP.getFreeHeap() +
+          ",\"cpu_freq_mhz\":" + ESP.getCpuFreqMHz() +
+          ",\"update_ms\":" + __UPDATE_INTERVAL +
+          ",\"sdk\":\"" + system_get_sdk_version() + "\"" +
+          // ",\"ota_hostname\":\"" + ArduinoOTA.getHostname() + "\"" +
+          ",\"boot_time_ms\":" + system_get_time() / 1000 +
           "}";
 }
 
@@ -144,6 +145,10 @@ void callback(char *topic, byte *payload, unsigned int length) {
     Serial.printf("%s\n", sys_info().c_str());
     Serial.printf("Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
     }
+  else if (buffer == "test") {
+    bool mqtt_res = mqtt_client.publish(mqtt_topic, "hello");
+    Serial.printf("[test] Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
+    }
 }
 
 #ifdef CONFIG_USING_ENTERPRISE_WIFI
@@ -187,7 +192,7 @@ static void wifi_regular_connect_init() {
     delay(500);
     Serial.print(".");
   }
-  Serial.printf("Wifi is ready. (IP: %s)\n", WiFi.localIP().toString().c_str());
+  Serial.printf("Wifi is ready (IP: %s)\n", WiFi.localIP().toString().c_str());
 }
 #endif
 

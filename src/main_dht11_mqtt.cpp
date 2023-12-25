@@ -1,5 +1,6 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include <WiFiManager.h> //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include <ArduinoOTA.h>
 #include <Esp.h>
 #include <string>
@@ -25,6 +26,9 @@ const char *enterprise_wifi_password = __ENTERPRISE_WIFI_PASSWORD;
 const char *wifi_ssid = __WIFI_SSID;       // Enter your WiFi name
 const char *wifi_password = __WIFI_PASSWORD; // Enter WiFi password
 #endif
+// Fallback hotspot AP
+String fallback_ap_ssid = "esp8266-fallback-ap-";
+const char *fallback_ap_password = "12345678";
 // MQTT Broker
 const char *mqtt_broker = __MQTT_BROKER;
 const char *mqtt_topic = __MQTT_TOPIC;
@@ -38,6 +42,7 @@ String client_id = "esp8266-sensor-";
 DHT dht11(DHT11_PIN, DHT11, 11);
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
+WiFiManager wifiManager;
 
 String sys_info() {
   return  "{\"node\":\"" + client_id + "\"" +
@@ -187,12 +192,14 @@ static void wifi_enterprise_connect_init(void) {
 }
 #elif CONFIG_USING_REGULAR_WIFI
 static void wifi_regular_connect_init() {
-  WiFi.begin(wifi_ssid, wifi_password);
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
-    Serial.print(".");
-  }
+  fallback_ap_ssid += String(macStr);
+  wifiManager.autoConnect(fallback_ap_ssid.c_str(), fallback_ap_password);
+  // WiFi.begin(wifi_ssid, wifi_password);
+  // while (WiFi.status() != WL_CONNECTED)
+  // {
+  //   delay(500);
+  //   Serial.print(".");
+  // }
   Serial.printf("Wifi is ready (IP: %s)\n", WiFi.localIP().toString().c_str());
 }
 #endif
@@ -214,8 +221,8 @@ void mqtt_connect() {
   bool mqtt_res = mqtt_client.publish(mqtt_topic, sys_info().c_str());
   Serial.printf("%s\n", sys_info().c_str());
   Serial.printf("Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
-  mqtt_client.subscribe(mqtt_topic);
-  mqtt_client.subscribe(__MQTT_TOPIC_CMD);
+  mqtt_client.subscribe((String(mqtt_topic) + String(__MQTT_TOPIC_CMD)).c_str());                         // For broadcast
+  mqtt_client.subscribe((String(mqtt_topic) + "/" + String(macStr) + String(__MQTT_TOPIC_CMD)).c_str());  // For specifiy by MAC
 }
 
 

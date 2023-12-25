@@ -1,6 +1,7 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include <WiFiManager.h> //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
+#include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager WiFi Configuration Magic
+#include <ArduinoJson.h>  // https://github.com/bblanchon/ArduinoJson
 #include <ArduinoOTA.h>
 #include <Esp.h>
 #include <string>
@@ -16,45 +17,51 @@ extern "C" {
 // #define DEVICE_NAME "mqtt_OTA_A"
 #define DHT11_PIN 2
 
-// Wi-Fi
+// Wi-Fi config
 #ifdef CONFIG_USING_ENTERPRISE_WIFI
 const char *enterprise_wifi_ssid = __ENTERPRISE_WIFI_SSID;
 const char *enterprise_wifi_identity = __ENTERPRISE_WIFI_IDENTITY;
 const char *enterprise_wifi_username = __ENTERPRISE_WIFI_USERNAME;
 const char *enterprise_wifi_password = __ENTERPRISE_WIFI_PASSWORD;
 #elif CONFIG_USING_REGULAR_WIFI
-const char *wifi_ssid = __WIFI_SSID;       // Enter your WiFi name
-const char *wifi_password = __WIFI_PASSWORD; // Enter WiFi password
+const char *wifi_ssid = __WIFI_SSID;          // Enter your WiFi name
+const char *wifi_password = __WIFI_PASSWORD;  // Enter WiFi password
 #endif
 // Fallback hotspot AP
 String fallback_ap_ssid = "esp8266-fallback-ap-";
 const char *fallback_ap_password = "12345678";
-// MQTT Broker
+// MQTT config
 const char *mqtt_broker = __MQTT_BROKER;
 const char *mqtt_topic = __MQTT_TOPIC;
 const char *mqtt_username = __MQTT_USERNAME;
 const char *mqtt_password = __MQTT_PASSWORD;
 const int mqtt_port = __MQTT_PORT;
+// Misc. config
 int mqtt_watchdog = __MQTT_WATCHDOG;
+unsigned long mqtt_sensor_update_ms = __UPDATE_INTERVAL;
 char macStr[13] = { 0 };
-
 String client_id = "esp8266-sensor-";
 DHT dht11(DHT11_PIN, DHT11, 11);
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
 WiFiManager wifiManager;
+// JSON config
+DynamicJsonDocument doc(256);
 
 String sys_info() {
-  return  "{\"node\":\"" + client_id + "\"" +
-          ",\"ip\":\"" + WiFi.localIP().toString() +  "\"" +
-          ",\"gateway\":\"" + WiFi.gatewayIP().toString() + "\"" +
-          ",\"free_heap\":" + ESP.getFreeHeap() +
-          ",\"cpu_freq_mhz\":" + ESP.getCpuFreqMHz() +
-          ",\"update_ms\":" + __UPDATE_INTERVAL +
-          ",\"sdk\":\"" + system_get_sdk_version() + "\"" +
-          // ",\"ota_hostname\":\"" + ArduinoOTA.getHostname() + "\"" +
-          ",\"boot_time_ms\":" + system_get_time() / 1000 +
-          "}";
+  doc["node"] = client_id;                              // node
+  doc["ip"] = WiFi.localIP().toString();                // ip
+  doc["gw"] = WiFi.gatewayIP().toString();              // gateway
+  doc["free_heap"] = ESP.getFreeHeap();                 // free_heap
+  doc["cpu_mhz"] = ESP.getCpuFreqMHz();                 // cpu_freq_mhz
+  doc["pub_ms"] = mqtt_sensor_update_ms;                // update_ms (publish)
+  doc["sdk"] = system_get_sdk_version();                // sdk
+  // doc["ota_hostname"] = ArduinoOTA.getHostname();       // ota_hostname
+  doc["boot_ms"] = system_get_time() / 1000 ;           // boot_time_ms
+  size_t jsonLength = measureJson(doc) + 1; // Account for null-terminator, else trailing garbage is returned
+	char json_output[jsonLength];
+	serializeJson(doc, json_output, sizeof(json_output));
+  return json_output;
 }
 
 #ifdef CONFIG_USING_ENTERPRISE_WIFI
@@ -124,7 +131,7 @@ void loop()
   ArduinoOTA.handle();
   mqtt_client.loop();
 
-  if ( (millis() - last_update) > __UPDATE_INTERVAL ) {
+  if ( (millis() - last_update) > mqtt_sensor_update_ms ) {
     float temperature, humidity;
     if(dht11.read()) {
       humidity = dht11.readHumidity();
@@ -152,9 +159,14 @@ void callback(char *topic, byte *payload, unsigned int length) {
     Serial.printf("Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
     }
   else if (buffer == "test") {
-    bool mqtt_res = mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), String("\"hello world\" from ["+client_id+"]").c_str());
+    bool mqtt_res = mqtt_client.publish(
+      String(mqtt_topic + String("/") + String(macStr)).c_str(),
+      String("\"hello world\" from [" + client_id + "] boot_time_ms: " + system_get_time() / 1000).c_str());
     Serial.printf("[test] Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
     }
+  else if (buffer == "config") {
+    mqtt_sensor_update_ms = 6;
+  }
 }
 
 #ifdef CONFIG_USING_ENTERPRISE_WIFI

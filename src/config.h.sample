@@ -13,12 +13,18 @@
 
 /// # MQTT Informations
 #define __MQTT_BROKER "mqtt.open.domain.org"
-#define __MQTT_TOPIC_CMD "SENSOR/dht11/cmd"
+// #define __MQTT_TOPIC_CMD "homeassistant/sensor/dht11/cmd"
+// #define __MQTT_TOPIC "homeassistant/sensor/dht11/reading_area"
+#define __MQTT_TOPIC_CMD "/cmd"
 #define __MQTT_TOPIC "SENSOR/dht11/A1"
-#define __MQTT_USERNAME "abcd1234"
+// #define __MQTT_TOPIC "SENSOR/dht11/window_area"
+#define __MQTT_USERNAME "admin"
 #define __MQTT_PASSWORD "12345678"
-#define __MQTT_PORT 1883
+#define __MQTT_PORT "1883"
 #define __MQTT_WATCHDOG 10
 // Keep_Alive_Interval : 60
 
-#define __UPDATE_INTERVAL 20000
+#define __UPDATE_INTERVAL_MS 20000
+#define __UPDATE_SYS_INTERVAL_MS 10000
+#define __MINIMAL_UPDATE_INTERVAL_MS 4000
+#define __FORCE_UPDATE_DELAY_MS 3000

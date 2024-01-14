@@ -229,9 +229,9 @@ static void wifi_regular_connect_init() {
 void mqtt_connect() {
   while (!mqtt_client.connected())
   {
-    Serial.printf("[%s] Connecting to MQTT broker \"%s\"\n", client_id.c_str(), mqtt_broker);
+    Serial.printf("[%s] Connecting to MQTT broker \"%s:%s\"\n", client_id.c_str(), mqtt_broker, mqtt_port_str);
     if (mqtt_client.connect(client_id.c_str(), mqtt_username, mqtt_password))
-      Serial.println("Connected!");
+      Serial.println("MQTT Connected!");
     else
     {
       Serial.printf("No luck, retrying... <%d/%d> (with state %d)", mqtt_watchdog--, __MQTT_WATCHDOG, mqtt_client.state());

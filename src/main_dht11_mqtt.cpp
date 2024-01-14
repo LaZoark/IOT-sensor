@@ -157,10 +157,12 @@ void setup() {
 
   WiFi.mode(WIFI_STA);
   pinMode(DHT11_PIN, INPUT);
+  // delay(500);
   dht11.begin();
+  // delay(1000);
   Serial.begin(115200);
-  delay(2000);
-  Serial.setDebugOutput(true);
+  // delay(100);
+  // Serial.setDebugOutput(true);
   Serial.printf("\nSDK version: %s\n", system_get_sdk_version());
   Serial.printf("Free Heap: %4d\n", ESP.getFreeHeap());
   // Setting ESP into STATION mode only (no AP mode or dual mode)

@@ -43,7 +43,8 @@ const char *mqtt_password = __MQTT_PASSWORD;
 const int mqtt_port = __MQTT_PORT;
 // Misc. config
 int mqtt_watchdog = __MQTT_WATCHDOG;
-unsigned long mqtt_sensor_update_ms = __UPDATE_INTERVAL;
+unsigned long mqtt_sensor_update_ms = __UPDATE_INTERVAL_MS;
+unsigned long mqtt_sys_update_ms = __UPDATE_SYS_INTERVAL_MS;
 char macStr[13] = { 0 };
 String client_id = "esp8266-sensor-";
 DHT dht11(DHT11_PIN, DHT11, 11);

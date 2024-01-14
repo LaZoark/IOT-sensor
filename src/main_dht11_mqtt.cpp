@@ -31,8 +31,10 @@ const char *wifi_ssid = __WIFI_SSID;          // Enter your WiFi name
 const char *wifi_password = __WIFI_PASSWORD;  // Enter WiFi password
 #endif
 // Fallback hotspot AP
-String fallback_ap_ssid = "esp8266-fallback-ap-";
+String fallback_ap_ssid = "esp-fallback-";
 const char *fallback_ap_password = "12345678";
+// Wi-Fi Manager and configs
+WiFiManager wm;
 // MQTT config
 const char *mqtt_broker = __MQTT_BROKER;
 const char *mqtt_topic = __MQTT_TOPIC;
@@ -208,8 +210,12 @@ static void wifi_enterprise_connect_init(void) {
 }
 #elif CONFIG_USING_REGULAR_WIFI
 static void wifi_regular_connect_init() {
-  fallback_ap_ssid += String(macStr);
-  wifiManager.autoConnect(fallback_ap_ssid.c_str(), fallback_ap_password);
+  String split_macStr = String(macStr);
+  split_macStr.remove(0, 6);
+  fallback_ap_ssid += split_macStr;
+  // wm.autoConnect();
+  // wm.autoConnect(fallback_ap_ssid.c_str(), fallback_ap_password);
+  wm.autoConnect(fallback_ap_ssid.c_str());
   // WiFi.begin(wifi_ssid, wifi_password);
   // while (WiFi.status() != WL_CONNECTED)
   // {

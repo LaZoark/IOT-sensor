@@ -57,6 +57,8 @@ int mqtt_port;
 int mqtt_watchdog = __MQTT_WATCHDOG;
 unsigned long mqtt_sensor_update_ms = __UPDATE_INTERVAL_MS;
 unsigned long mqtt_sys_update_ms = __UPDATE_SYS_INTERVAL_MS;
+unsigned long last_update_sensor = 0;
+unsigned long last_update_sys = 0;
 char macStr[13] = { 0 };
 String client_id = "esp8266-sensor-";
 DHT dht11(DHT11_PIN, DHT11, 11);
@@ -187,7 +189,6 @@ void setup() {
   mqtt_connect();
 }
 
-unsigned long last_update = 0;
 
 void loop()
 {
@@ -213,27 +214,52 @@ void loop()
 }
 
 void callback(char *topic, byte *payload, unsigned int length) {
-  // Serial.printf("[%s]: %hhn", topic, payload);
-  // Serial.printf("\n-----------------------%ld(s)\n", millis());
+  char res_buffer[96];
   std::string buffer = "";
   for (unsigned int i = 0; i < length; i++)
     buffer += (char)payload[i];
-  if (buffer == "reboot")
+  if (buffer == "reboot") {
     ESP.restart();
-  else if (buffer == "info") {
-    bool mqtt_res = mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), sys_info().c_str());
+  } else if (buffer == "help") {
+    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), help_msg().c_str());
+    Serial.printf("%s\n", help_msg().c_str());
+  } else if (buffer == "info") {
+    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), sys_info().c_str());
     Serial.printf("%s\n", sys_info().c_str());
-    Serial.printf("Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
+  } else if (buffer == "reset-wifi") {
+    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), "[INFO] Resetting the Wi-Fi (resetSettings)");
+    wm.resetSettings();
+  } else if (buffer == "config") {
+    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), "[INFO] Entering config mode (startConfigPortal)");
+    wm.startConfigPortal(fallback_ap_ssid.c_str());
+  } else if (buffer == "ping") {
+    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(),
+      String("\"Hello World!\" from [" + client_id + "] t=" + system_get_time()).c_str());  // nano second
+  } else if (String(buffer[0]) == String('{')) {  /*JSONconfig*/
+    deserializeJson(sub_doc, payload, length);  // Convert JSON string to something useable.
+    if (!sub_doc["pub_ms"].isNull()) {
+      int _pub_ms = sub_doc["pub_ms"];
+      if (_pub_ms >= __MINIMAL_UPDATE_INTERVAL_MS) {
+        Serial.printf("{\"config\": \"MQTT publish interval from %lu set to %d\"}\n", mqtt_sensor_update_ms, _pub_ms);
+        snprintf(res_buffer, sizeof(res_buffer), "{\"config\": \"MQTT publish interval from %lu set to %d\"}", mqtt_sensor_update_ms, _pub_ms);
+        mqtt_sensor_update_ms = _pub_ms;
+        
+      } else {
+        Serial.printf("{\"error\": \"%d ms is too short. The value must larger than %d.\"}\n", _pub_ms, __MINIMAL_UPDATE_INTERVAL_MS);
+        snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"%d ms is too short. The value must larger than %d.\"}", _pub_ms, __MINIMAL_UPDATE_INTERVAL_MS);
+      } 
+    } else {
+      Serial.printf("{\"error\": \"Unsupported JSON config: %s\"}\n", buffer.data());
+      snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unsupported JSON config: %s\"}", buffer.data());
     }
-  else if (buffer == "test") {
-    bool mqtt_res = mqtt_client.publish(
-      String(mqtt_topic + String("/") + String(macStr)).c_str(),
-      String("\"hello world\" from [" + client_id + "] boot_time_ms: " + system_get_time() / 1000).c_str());
-    Serial.printf("[test] Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
-    }
-  else if (buffer == "config") {
-    mqtt_sensor_update_ms = 6;
+    // mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), res_buffer);
   }
+  else {
+    Serial.printf("[%s]: Unknown command: \"%s\"", topic, buffer.data());
+    Serial.printf("\n----------------------- %lu(ms) -----------------------\n", millis());
+    snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unknown command: %s\"}", buffer.data());
+  }
+  mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), res_buffer);
 }
 
 #ifdef CONFIG_USING_ENTERPRISE_WIFI

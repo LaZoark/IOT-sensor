@@ -239,11 +239,13 @@ void mqtt_connect() {
 
 
 
-void blink_led(uint8 ledPin, long interval){
-  digitalWrite(ledPin, HIGH);
-  delay(long(interval/2));
-  digitalWrite(ledPin, LOW);
-  delay(long(interval/2));
+// void blink_led(uint8 ledPin, long interval){
+//   digitalWrite(ledPin, HIGH);
+//   delay(long(interval/2));
+//   digitalWrite(ledPin, LOW);
+//   delay(long(interval/2));
+
+
   // int ledState = LOW;             // ledState used to set the LED
   // // Generally, you should use "unsigned long" for variables that hold time
   // // The value will quickly become too large for an int to store
@@ -264,5 +266,7 @@ void blink_led(uint8 ledPin, long interval){
   //   // set the LED with the ledState of the variable:
   //   digitalWrite(ledPin, ledState);
   // }
+
+// }
 
 }

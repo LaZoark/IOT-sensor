@@ -76,6 +76,7 @@ static void wifi_regular_connect_init(void);
 #endif
 void mqtt_connect(void);
 void callback(char *topic, byte *payload, unsigned int length);
+double round2(double value);
 // void blink_led(uint8 ledPin, long interval);
 
 void setup()
@@ -272,4 +273,7 @@ void mqtt_connect() {
 
 // }
 
+// rounds a number to 2 decimal places. Example: round(3.14159) -> 3.14
+double round2(double value) {
+  return (int)(value * 100 + 0.5) / 100.0;
 }

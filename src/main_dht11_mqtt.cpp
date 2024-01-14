@@ -57,6 +57,9 @@ int mqtt_port;
 int mqtt_watchdog = __MQTT_WATCHDOG;
 unsigned long mqtt_sensor_update_ms = __UPDATE_INTERVAL_MS;
 unsigned long mqtt_sys_update_ms = __UPDATE_SYS_INTERVAL_MS;
+// Only when the "mqtt_sensor_update_ms" was updated the value will become non-zero (default 2000).
+// This value also enables the `force trigger` when the "mqtt_sensor_update_ms" was updated
+unsigned long force_update_delay_ms = 0;
 unsigned long last_update_sensor = 0;
 unsigned long last_update_sys = 0;
 char macStr[13] = { 0 };
@@ -198,18 +201,29 @@ void loop()
     mqtt_connect();
   ArduinoOTA.handle();
   mqtt_client.loop();
-
-  if ( (millis() - last_update) > mqtt_sensor_update_ms ) {
-    float temperature, humidity;
-    if(dht11.read()) {
+// Sense and publish the data
+  if ( (millis() - last_update_sensor) >= mqtt_sensor_update_ms ) {
+    float temperature=0, humidity=0;
+    sensor_state = dht11.read();
+    if (sensor_state) {
       humidity = dht11.readHumidity();
       temperature = dht11.readTemperature();
-      mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/temperature")).c_str(), String(temperature).c_str()); 
-      mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/humidity")).c_str(), String(humidity).c_str()); 
-    } else 
-      mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/error")).c_str(), 
-        "Can't read DHT11. Please check the hardware or use \"reboot\" and \"info\" under \"/cmd\" for further information.");
-    last_update = millis();
+      // mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/temperature")).c_str(), String(temperature).c_str()); 
+      // mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/humidity")).c_str(), String(humidity).c_str()); 
+    } else {
+      Serial.printf("%s %lu(ms)\n", ERROR_SENSOR_STR, millis());
+      // mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), ERROR_SENSOR_STR);
+    }
+    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/data")).c_str(), 
+                        sensor_logger(sensor_state, temperature, humidity).c_str());
+    last_update_sensor = millis();
+  }
+// Publish the system info
+  if ( (millis() - last_update_sys) >= ((force_update_delay_ms==0) ? mqtt_sys_update_ms : force_update_delay_ms)) {
+    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/state")).c_str(),
+                        state_logger(sensor_state).c_str());
+    last_update_sys = millis();
+    force_update_delay_ms = 0;      // Set to 0 again since the `force update` was done.
   }
 }
 
@@ -243,6 +257,8 @@ void callback(char *topic, byte *payload, unsigned int length) {
         Serial.printf("{\"config\": \"MQTT publish interval from %lu set to %d\"}\n", mqtt_sensor_update_ms, _pub_ms);
         snprintf(res_buffer, sizeof(res_buffer), "{\"config\": \"MQTT publish interval from %lu set to %d\"}", mqtt_sensor_update_ms, _pub_ms);
         mqtt_sensor_update_ms = _pub_ms;
+        // Active trigger: Force update the "/state" after overwriting the "mqtt update interval"
+        force_update_delay_ms = __FORCE_UPDATE_DELAY_MS;
         
       } else {
         Serial.printf("{\"error\": \"%d ms is too short. The value must larger than %d.\"}\n", _pub_ms, __MINIMAL_UPDATE_INTERVAL_MS);

@@ -343,9 +343,9 @@ void mqtt_connect() {
     if (mqtt_watchdog == 0)
       ESP.restart();
   }
-  bool mqtt_res = mqtt_client.publish(mqtt_topic, sys_info().c_str());
+  // mqtt_client.publish(mqtt_topic, sys_info().c_str());
+  mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), sys_info().c_str());
   Serial.printf("%s\n", sys_info().c_str());
-  Serial.printf("Published? %d (with state %d)\n", mqtt_res, mqtt_client.state());
   mqtt_client.subscribe((String(mqtt_topic) + String(__MQTT_TOPIC_CMD)).c_str());                         // For broadcast
   mqtt_client.subscribe((String(mqtt_topic) + "/" + String(macStr) + String(__MQTT_TOPIC_CMD)).c_str());  // For specifiy by MAC
 }

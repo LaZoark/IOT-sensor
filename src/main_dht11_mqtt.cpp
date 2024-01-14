@@ -35,12 +35,24 @@ String fallback_ap_ssid = "esp-fallback-";
 const char *fallback_ap_password = "12345678";
 // Wi-Fi Manager and configs
 WiFiManager wm;
+// WiFiManagerParameter: id/name, placeholder/prompt, default, length
+WiFiManagerParameter custom_mqtt_broker("mqtt_broker", "mqtt_broker", __MQTT_BROKER, 40);
+WiFiManagerParameter custom_mqtt_topic("mqtt_topic", "mqtt_topic", __MQTT_TOPIC, 32);
+WiFiManagerParameter custom_mqtt_username("mqtt_username", "mqtt_username", __MQTT_USERNAME, 32);
+WiFiManagerParameter custom_mqtt_password("mqtt_password", "mqtt_password", __MQTT_PASSWORD, 32);
+WiFiManagerParameter custom_mqtt_port("mqtt_port", "mqtt_port", __MQTT_PORT, 6);
 // MQTT config
-const char *mqtt_broker = __MQTT_BROKER;
-const char *mqtt_topic = __MQTT_TOPIC;
-const char *mqtt_username = __MQTT_USERNAME;
-const char *mqtt_password = __MQTT_PASSWORD;
-const int mqtt_port = __MQTT_PORT;
+// const char *mqtt_broker = __MQTT_BROKER;
+// const char *mqtt_topic = __MQTT_TOPIC;
+// const char *mqtt_username = __MQTT_USERNAME;
+// const char *mqtt_password = __MQTT_PASSWORD;
+// const char *mqtt_port_str = __MQTT_PORT;
+char mqtt_broker[40];
+char mqtt_topic[32];
+char mqtt_username[32];
+char mqtt_password[32];
+char mqtt_port_str[6];
+int mqtt_port;
 // Misc. config
 int mqtt_watchdog = __MQTT_WATCHDOG;
 unsigned long mqtt_sensor_update_ms = __UPDATE_INTERVAL_MS;
@@ -116,6 +128,22 @@ String state_logger(bool state) {
 	serializeJson(state_doc, json_output, sizeof(json_output));
   return json_output;
 }
+
+void setup() {
+  wm.setConfigPortalTimeout(120);       // Set a timeout for captive portal
+  wm.addParameter(&custom_mqtt_broker);
+  wm.addParameter(&custom_mqtt_topic);
+  wm.addParameter(&custom_mqtt_username);
+  wm.addParameter(&custom_mqtt_password);
+  wm.addParameter(&custom_mqtt_port);
+
+  strcpy(mqtt_broker, custom_mqtt_broker.getValue());
+  strcpy(mqtt_topic, custom_mqtt_topic.getValue());
+  strcpy(mqtt_username, custom_mqtt_username.getValue());
+  strcpy(mqtt_password, custom_mqtt_password.getValue());
+  strcpy(mqtt_port_str, custom_mqtt_port.getValue());
+  mqtt_port = atoi(mqtt_port_str);      // Turn mqtt port to int
+
   uint8_t mac[6];
   WiFi.macAddress(mac);
   // char macStr[13] = { 0 };

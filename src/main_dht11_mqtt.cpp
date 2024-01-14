@@ -49,25 +49,6 @@ String client_id = "esp8266-sensor-";
 DHT dht11(DHT11_PIN, DHT11, 11);
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
-WiFiManager wifiManager;
-// JSON config
-DynamicJsonDocument doc(256);
-
-String sys_info() {
-  doc["node"] = client_id;                              // node
-  doc["ip"] = WiFi.localIP().toString();                // ip
-  doc["gw"] = WiFi.gatewayIP().toString();              // gateway
-  doc["free_heap"] = ESP.getFreeHeap();                 // free_heap
-  doc["cpu_mhz"] = ESP.getCpuFreqMHz();                 // cpu_freq_mhz
-  doc["pub_ms"] = mqtt_sensor_update_ms;                // update_ms (publish)
-  doc["sdk"] = system_get_sdk_version();                // sdk
-  // doc["ota_hostname"] = ArduinoOTA.getHostname();       // ota_hostname
-  doc["boot_ms"] = system_get_time() / 1000 ;           // boot_time_ms
-  size_t jsonLength = measureJson(doc) + 1; // Account for null-terminator, else trailing garbage is returned
-	char json_output[jsonLength];
-	serializeJson(doc, json_output, sizeof(json_output));
-  return json_output;
-}
 
 #ifdef CONFIG_USING_ENTERPRISE_WIFI
 static void wifi_enterprise_connect_init(void);
@@ -81,8 +62,59 @@ void callback(char *topic, byte *payload, unsigned int length);
 double round2(double value);
 // void blink_led(uint8 ledPin, long interval);
 
-void setup()
-{
+// Global variable
+bool sensor_state = false;
+
+// JSON config
+JsonDocument pub_doc, help_doc, log_doc, sub_doc, state_doc;  // Allocate memory for the sub_doc array.
+
+String sys_info( ) {
+  pub_doc["node"] = client_id;                              // node
+  pub_doc["ssid"] = WiFi.SSID();                            // SSID
+  pub_doc["ip"] = WiFi.localIP().toString();                // ip
+  pub_doc["gw"] = WiFi.gatewayIP().toString();              // gateway
+  pub_doc["free_heap"] = ESP.getFreeHeap();                 // free_heap
+  pub_doc["cpu_mhz"] = ESP.getCpuFreqMHz();                 // cpu_freq_mhz
+  pub_doc["pub_ms"] = mqtt_sensor_update_ms;                // update_ms (publish)
+//pub_doc["sdk"] = system_get_sdk_version();                // sdk
+  pub_doc["compile"] = COMPILE_TIME;                        // COMPILE_TIME
+  pub_doc["boot_ms"] = system_get_time() / 1000;            // boot_time_ms
+  size_t jsonLength = measureJson(pub_doc) + 1; // Account for null-terminator, else trailing garbage is returned
+	char json_output[jsonLength];
+	serializeJson(pub_doc, json_output, sizeof(json_output));
+  return json_output;
+}
+String help_msg( ) {
+  help_doc["help"] = "Show this help.";
+  help_doc["reboot"] = "Reboot.";
+  help_doc["info"] = "Show the system info.";
+  help_doc["reset-wifi"] = "Clear and reset the Wi-Fi.";
+  help_doc["JSONconfig"] = "Modify options from <info> in JSON form.";
+  help_doc["ping"] = "For testing.";
+  help_doc["boot_ms"] = system_get_time() / 1000;
+	char json_output[measureJson(help_doc) + 1];   // Account for null-terminator, else trailing garbage is returned
+	serializeJson(help_doc, json_output, sizeof(json_output));
+  return json_output;
+}
+String sensor_logger(bool state, float temperature, float humidity) {
+  if (state) {
+    log_doc["t"] = round2(temperature);
+    log_doc["rh"] = round2(humidity);
+  } else {
+    log_doc["err"] = "Please check the hardware or use <help> & <info> under </cmd> to debug.";
+  }
+	char json_output[measureJson(log_doc) + 1];   // Account for null-terminator, else trailing garbage is returned
+	serializeJson(log_doc, json_output, sizeof(json_output));
+  return json_output;
+}
+String state_logger(bool state) {
+  state_doc["t_ms"] = system_get_time() / 1000;
+  state_doc["sensor"] = state;
+  state_doc["pub_ms"] = mqtt_sensor_update_ms;
+	char json_output[measureJson(state_doc) + 1];   // Account for null-terminator, else trailing garbage is returned
+	serializeJson(state_doc, json_output, sizeof(json_output));
+  return json_output;
+}
   uint8_t mac[6];
   WiFi.macAddress(mac);
   // char macStr[13] = { 0 };

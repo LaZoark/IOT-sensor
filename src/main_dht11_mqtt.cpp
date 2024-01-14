@@ -172,7 +172,7 @@ void setup() {
   ArduinoOTA.onStart([]() {
   String type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
   // NOTE: if updating FS this would be the place to unmount FS using FS.end()
-  Serial.println("Start updating " + type);});
+  Serial.println("Start updating " + type); mqtt_sensor_update_ms=100000; mqtt_sys_update_ms=100000; force_update_delay_ms=100000;});
   ArduinoOTA.onEnd([]() {Serial.println("\nEnd");});
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
   Serial.printf("Progress: %u%%\r", (progress / (total / 100)));});

@@ -16,6 +16,9 @@ extern "C" {
 
 // #define DEVICE_NAME "mqtt_OTA_A"
 #define DHT11_PIN 2
+#define ERROR_SENSOR_STR "Can't read DHT11. Please check the hardware or use \"help\" & \"info\" under \"/cmd\" to debug."
+#define ERROR_SENSOR_JSON "{\"sensor\": false, \"log\": \"Please check the hardware or use \"help\" & \"info\" under \"/cmd\" to debug.\"}"
+#define COMPILE_TIME __DATE__ " " __TIME__
 
 // Wi-Fi config
 #ifdef CONFIG_USING_ENTERPRISE_WIFI

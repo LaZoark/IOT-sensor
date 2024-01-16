@@ -8,3 +8,4 @@ src/test_wifi.cpp.backup
 src/test_wifi.cpp.nonos
 src/config.h
 firmware.bin
+.vscode/settings.json

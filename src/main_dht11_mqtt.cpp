@@ -23,10 +23,11 @@ String fwUrlBase = "https://raw.githubusercontent.com/LaZoark/IOT-sensor/main/fi
 const String FirmwareVer={"1.8"}; 
 #define URL_FW_VERSION "/LaZoark/IOT-sensor/main/version.txt"
 #define URL_FW_BIN "https://raw.githubusercontent.com/LaZoark/IOT-sensor/main/firmware.bin"
+// #define URL_FW_BIN "https://raw.githubusercontent.com/LaZoark/IOT-sensor/blob/dev/.pio/build/d1_mini/firmware.bin"
 const char* host = "raw.githubusercontent.com";
 const int httpsPort = 443;
 // BearSSL::WiFiClientSecure client;
-BearSSL::CertStore certStore;
+// BearSSL::CertStore certStore;
 
 // DigiCert High Assurance EV Root CA
 const char trustRoot[] PROGMEM = R"EOF(
@@ -58,10 +59,8 @@ X509List cert(trustRoot);
 extern const unsigned char caCert[] PROGMEM;
 extern const unsigned int caCertLen;
 
-// #define DEVICE_NAME "mqtt_OTA_A"
 #define DHT11_PIN 2
 #define ERROR_SENSOR_STR "Can't read DHT11. Please check the hardware or use \"help\" & \"info\" under \"/cmd\" to debug."
-#define ERROR_SENSOR_JSON "{\"sensor\": false, \"log\": \"Please check the hardware or use \"help\" & \"info\" under \"/cmd\" to debug.\"}"
 #define COMPILE_TIME __DATE__ " " __TIME__
 
 // Wi-Fi config
@@ -144,8 +143,7 @@ String sys_info( ) {
 //pub_doc["sdk"] = system_get_sdk_version();                // sdk
   pub_doc["compile"] = COMPILE_TIME;                        // COMPILE_TIME
   pub_doc["boot_ms"] = system_get_time() / 1000;            // boot_time_ms
-  size_t jsonLength = measureJson(pub_doc) + 1; // Account for null-terminator, else trailing garbage is returned
-	char json_output[jsonLength];
+	char json_output[measureJson(pub_doc) + 1]; // Account for null-terminator, else trailing garbage is returned
 	serializeJson(pub_doc, json_output, sizeof(json_output));
   return json_output;
 }
@@ -278,17 +276,20 @@ void loop()
 
 void callback(char *topic, byte *payload, unsigned int length) {
   char res_buffer[96];
-  std::string buffer = "";
+  // std::string buffer = "";
+  String buffer = "";
   for (unsigned int i = 0; i < length; i++)
     buffer += (char)payload[i];
   if (buffer == "reboot") {
     ESP.restart();
   } else if (buffer == "help") {
-    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), help_msg().c_str());
-    Serial.printf("%s\n", help_msg().c_str());
+    String temp_payload = help_msg();
+    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), temp_payload.c_str());
+    Serial.println(temp_payload.c_str());
   } else if (buffer == "info") {
-    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), sys_info().c_str());
-    Serial.printf("%s\n", sys_info().c_str());
+    String temp_payload = sys_info();
+    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), temp_payload.c_str());
+    Serial.println(temp_payload.c_str());
   } else if (buffer == "reset-wifi") {
     mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(), "[INFO] Resetting the Wi-Fi (resetSettings)");
     wm.resetSettings();
@@ -298,12 +299,13 @@ void callback(char *topic, byte *payload, unsigned int length) {
   } else if (buffer == "ping") {
     mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr)).c_str(),
       String("\"Hello World!\" from [" + client_id + "] t=" + system_get_time()).c_str());  // nano second
+    Serial.println(String("\"Hello World!\" from [" + client_id + "] t=" + system_get_time()));
   } else if (buffer == "check-ota") {
     mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), "[OTA] Checking latest firmware...");
     // checkForUpdates();
     FirmwareUpdate();
   } else if (buffer == "time") {
-    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), "[OTA] Checking time from NTP...");
+    mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log/ntp")).c_str(), "[NTP] Checking time from NTP...");
     // checkForUpdates();
     setClock();
   } else if (String(buffer[0]) == String('{')) {  /*JSONconfig*/
@@ -311,26 +313,31 @@ void callback(char *topic, byte *payload, unsigned int length) {
     if (!sub_doc["pub_ms"].isNull()) {
       int _pub_ms = sub_doc["pub_ms"];
       if (_pub_ms >= __MINIMAL_UPDATE_INTERVAL_MS) {
-        Serial.printf("{\"config\": \"MQTT publish interval from %lu set to %d\"}\n", mqtt_sensor_update_ms, _pub_ms);
+        // Serial.printf("{\"config\": \"MQTT publish interval from %lu set to %d\"}\n", mqtt_sensor_update_ms, _pub_ms);
         snprintf(res_buffer, sizeof(res_buffer), "{\"config\": \"MQTT publish interval from %lu set to %d\"}", mqtt_sensor_update_ms, _pub_ms);
         mqtt_sensor_update_ms = _pub_ms;
         // Active trigger: Force update the "/state" after overwriting the "mqtt update interval"
         force_update_delay_ms = __FORCE_UPDATE_DELAY_MS;
         
       } else {
-        Serial.printf("{\"error\": \"%d ms is too short. The value must larger than %d.\"}\n", _pub_ms, __MINIMAL_UPDATE_INTERVAL_MS);
+        // Serial.printf("{\"error\": \"%d ms is too short. The value must larger than %d.\"}\n", _pub_ms, __MINIMAL_UPDATE_INTERVAL_MS);
         snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"%d ms is too short. The value must larger than %d.\"}", _pub_ms, __MINIMAL_UPDATE_INTERVAL_MS);
       } 
     } else {
-      Serial.printf("{\"error\": \"Unsupported JSON config: %s\"}\n", buffer.data());
-      snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unsupported JSON config: %s\"}", buffer.data());
+      // Serial.printf("{\"error\": \"Unsupported JSON config: %s\"}\n", buffer.data());
+      // Serial.printf("{\"error\": \"Unsupported JSON config: %s\"}\n", buffer.c_str());
+      // snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unsupported JSON config: %s\"}", buffer.data());
+      snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unsupported JSON config: %s\"}", buffer.c_str());
     }
     // mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), res_buffer);
+    Serial.println(res_buffer);
   }
   else {
-    Serial.printf("[%s]: Unknown command: \"%s\"", topic, buffer.data());
+    // Serial.printf("[%s]: Unknown command: \"%s\"", topic, buffer.data());
+    Serial.printf("[%s]: Unknown command: \"%s\"", topic, buffer.c_str());
     Serial.printf("\n----------------------- %lu(ms) -----------------------\n", millis());
-    snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unknown command: %s\"}", buffer.data());
+    // snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unknown command: %s\"}", buffer.data());
+    snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unknown command: %s\"}", buffer.c_str());
   }
   mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), res_buffer);
 }
@@ -400,9 +407,9 @@ void mqtt_connect() {
     if (mqtt_watchdog == 0)
       ESP.restart();
   }
-  // mqtt_client.publish(mqtt_topic, sys_info().c_str());
-  mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), sys_info().c_str());
-  Serial.printf("%s\n", sys_info().c_str());
+  String temp_payload = sys_info();
+  mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), temp_payload.c_str());
+  Serial.println(temp_payload.c_str());
   mqtt_client.subscribe((String(mqtt_topic) + String(__MQTT_TOPIC_CMD)).c_str());                         // For broadcast
   mqtt_client.subscribe((String(mqtt_topic) + "/" + String(macStr) + String(__MQTT_TOPIC_CMD)).c_str());  // For specifiy by MAC
 }
@@ -616,7 +623,7 @@ time_t setClock() {
   while (now < 8 * 3600 * 2) {
     if ((millis() - last_check_ntp) >= 100) {
       if (last_check_ntp % 500)
-      Serial.print(".");
+        Serial.print(".");
       now = time(nullptr);
       last_check_ntp = millis();
     }

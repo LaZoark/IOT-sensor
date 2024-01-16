@@ -447,7 +447,7 @@ double round2(double value) {
 void FirmwareUpdate(void) {
   setClock();
   BearSSL::WiFiClientSecure client;
-  char res_buffer[96];
+  char res_buffer[80];
   client.setTrustAnchors(&cert);
   if (!client.connect(host, httpsPort)) {
     Serial.println("Connection failed");
@@ -610,11 +610,12 @@ void checkForUpdates() {
 time_t setClock() {
   configTime(TZ_Asia_Taipei, "tock.stdtime.gov.tw", "time.stdtime.gov.tw", "asia.pool.ntp.org");
   Serial.print("[NTP] Waiting for NTP time sync...");
-  mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), "[NTP] Waiting for NTP time sync...");
+  mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log/ntp")).c_str(), "[NTP] Waiting for NTP time sync...");
   time_t now = time(nullptr);
   unsigned long last_check_ntp = 0;
   while (now < 8 * 3600 * 2) {
-    if ((millis() - last_check_ntp) >= 500) {
+    if ((millis() - last_check_ntp) >= 100) {
+      if (last_check_ntp % 500)
       Serial.print(".");
       now = time(nullptr);
       last_check_ntp = millis();
@@ -625,9 +626,9 @@ time_t setClock() {
   // gmtime_r(&now, &timeinfo);
   localtime_r(&now, &timeinfo);
 
-  char res_buffer[128];
+  char res_buffer[64];
   snprintf(res_buffer, sizeof(res_buffer), "[NTP] Current local time: %s", asctime(&timeinfo));
-  mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), res_buffer);
+  mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log/ntp")).c_str(), res_buffer);
   Serial.println(res_buffer);
   return now;
 }

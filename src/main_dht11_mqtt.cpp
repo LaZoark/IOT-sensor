@@ -20,7 +20,7 @@ extern "C" {
 }
 // URL for the OTA firmware
 // String fwUrlBase = "https://raw.githubusercontent.com/LaZoark/IOT-sensor/main/firmware.bin";
-const String fw_version = "1.8.4"; 
+const String fw_version = "1.8.4-beta"; 
 // #define URL_FW_VERSION "/LaZoark/IOT-sensor/main/version.txt"
 #define URL_FW_VERSION "/LaZoark/IOT-sensor/dev/version.txt"
 #define URL_FW_BIN_PREFIX "https://raw.githubusercontent.com/LaZoark/IOT-sensor/dev/.pio/build/"
@@ -126,9 +126,7 @@ String sys_info(void);
 String help_msg(void);
 String sensor_logger(bool state, float temperature, float humidity);
 String state_logger(bool state);
-// void checkForUpdates(void);
 void FirmwareUpdate(void);
-// time_t setClock(void);
 void setClock(void);
 // void blink_led(uint8 ledPin, long interval);
 
@@ -150,7 +148,6 @@ void setup() {
   wm.addParameter(&custom_mqtt_username);
   wm.addParameter(&custom_mqtt_password);
   wm.addParameter(&custom_mqtt_port);
-
   strcpy(mqtt_broker, custom_mqtt_broker.getValue());
   strcpy(mqtt_topic, custom_mqtt_topic.getValue());
   strcpy(mqtt_username, custom_mqtt_username.getValue());
@@ -198,11 +195,12 @@ void setup() {
   mqtt_client.setCallback(callback);
   mqtt_client.setBufferSize(__MQTT_MAX_PACKET_SIZE);
   mqtt_connect();
-mqtt_topic_mac = String(mqtt_topic) + "/" + macStr;
-mqtt_topic_log = String(mqtt_topic) + "/" + macStr + "/log";
-mqtt_topic_data = String(mqtt_topic) + "/" + macStr + "/data";
-mqtt_topic_state = String(mqtt_topic) + "/" + macStr + "/state";
-mqtt_topic_log_ntp = String(mqtt_topic) + "/" + macStr + "/log/ntp";
+  mqtt_topic_mac = String(mqtt_topic) + "/" + macStr;
+  mqtt_topic_log = String(mqtt_topic) + "/" + macStr + "/log";
+  mqtt_topic_data = String(mqtt_topic) + "/" + macStr + "/data";
+  mqtt_topic_state = String(mqtt_topic) + "/" + macStr + "/state";
+  mqtt_topic_log_ntp = String(mqtt_topic) + "/" + macStr + "/log/ntp";
+  ESPhttpUpdate.rebootOnUpdate(false); // remove automatic update
 }
 
 
@@ -236,7 +234,6 @@ void loop()
 }
 
 void callback(char *topic, byte *payload, unsigned int length) {
-  // std::string buffer = "";
   char res_buffer[96];
   String buffer;
   for (unsigned int i = 0; i < length; i++)
@@ -246,11 +243,11 @@ void callback(char *topic, byte *payload, unsigned int length) {
   } else if (buffer == "help") {
     String temp_payload = help_msg();
     mqtt_client.publish(mqtt_topic_log.c_str(), temp_payload.c_str());
-    Serial.println(temp_payload.c_str());
+    Serial.println(temp_payload);
   } else if (buffer == "info") {
     String temp_payload = sys_info();
     mqtt_client.publish(mqtt_topic_log.c_str(), temp_payload.c_str());
-    Serial.println(temp_payload.c_str());
+    Serial.println(temp_payload);
   } else if (buffer == "reset-wifi") {
     mqtt_client.publish(mqtt_topic_mac.c_str(), "[INFO] Resetting the Wi-Fi (resetSettings)");
     wm.resetSettings();
@@ -258,43 +255,36 @@ void callback(char *topic, byte *payload, unsigned int length) {
     mqtt_client.publish(mqtt_topic_mac.c_str(), "[INFO] Entering config mode (startConfigPortal)");
     wm.startConfigPortal(fallback_ap_ssid.c_str());
   } else if (buffer == "ping") {
-    mqtt_client.publish(mqtt_topic_log.c_str(), String("\"Hello World!\" from [" + client_id + "] t=" + system_get_time()).c_str());  // nano second
-    Serial.println(String("\"Hello World!\" from [" + client_id + "] t=" + system_get_time()));
+    mqtt_client.publish(mqtt_topic_log.c_str(), String("{\"ping\":\"" + client_id + "\",\"t\":" + system_get_time() + "}").c_str());  // nano second
+    Serial.println(String("{\"ping\":\"" + client_id + "\",\"t\":" + system_get_time() + "}"));
   } else if (buffer == "check-ota") {
-    mqtt_client.publish(mqtt_topic_log.c_str(), "[OTA] Checking latest firmware...");
+    mqtt_client.publish(mqtt_topic_log.c_str(), String("{\"ota\":\"Checking latest firmware... (current=" + fw_version + ")\"}").c_str());
+    Serial.println(String("{\"ota\":\"Checking latest firmware... (current=" + fw_version + ")\"}"));
     FirmwareUpdate();
   } else if (buffer == "time") {
-    mqtt_client.publish(mqtt_topic_log_ntp.c_str(), "[NTP] Checking time from NTP...");
+    mqtt_client.publish(mqtt_topic_log_ntp.c_str(), "{\"ntp\":\"Checking time from NTP...\"}");
     setClock();
   } else if (String(buffer[0]) == String('{')) {  /*JSONconfig*/
     deserializeJson(sub_doc, payload, length);  // Convert JSON string to something useable.
     if (!sub_doc["pub_ms"].isNull()) {
       int _pub_ms = sub_doc["pub_ms"];
       if (_pub_ms >= __MINIMAL_UPDATE_INTERVAL_MS) {
-        // Serial.printf("{\"config\": \"MQTT publish interval from %lu set to %d\"}\n", mqtt_sensor_update_ms, _pub_ms);
-        snprintf(res_buffer, sizeof(res_buffer), "{\"config\": \"MQTT publish interval from %lu set to %d\"}", mqtt_sensor_update_ms, _pub_ms);
+        snprintf(res_buffer, sizeof(res_buffer), "{\"config\":\"MQTT publish interval from %lu set to %d\"}", mqtt_sensor_update_ms, _pub_ms);
         mqtt_sensor_update_ms = _pub_ms;
         // Active trigger: Force update the "/state" after overwriting the "mqtt update interval"
         force_update_delay_ms = __FORCE_UPDATE_DELAY_MS;
-        
       } else {
-        // Serial.printf("{\"error\": \"%d ms is too short. The value must larger than %d.\"}\n", _pub_ms, __MINIMAL_UPDATE_INTERVAL_MS);
-        snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"%d ms is too short. The value must larger than %d.\"}", _pub_ms, __MINIMAL_UPDATE_INTERVAL_MS);
+        snprintf(res_buffer, sizeof(res_buffer), "{\"error\":\"%d ms is too short. The value must larger than %d.\"}", _pub_ms, __MINIMAL_UPDATE_INTERVAL_MS);
       } 
     } else {
-      // Serial.printf("{\"error\": \"Unsupported JSON config: %s\"}\n", buffer.data());
-      // Serial.printf("{\"error\": \"Unsupported JSON config: %s\"}\n", buffer.c_str());
-      // snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unsupported JSON config: %s\"}", buffer.data());
-      snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unsupported JSON config: %s\"}", buffer.c_str());
+      snprintf(res_buffer, sizeof(res_buffer), "{\"error\":\"Unsupported JSON config: %s\"}", buffer.c_str());
     }
     mqtt_client.publish(mqtt_topic_log.c_str(), res_buffer);
     Serial.println(res_buffer);
   } else {
-    // Serial.printf("[%s]: Unknown command: \"%s\"", topic, buffer.data());
     Serial.printf("[%s]: Unknown command: \"%s\"", topic, buffer.c_str());
     Serial.printf("\n----------------------- %lu(ms) -----------------------\n", millis());
-    // snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unknown command: %s\"}", buffer.data());
-    snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unknown command: %s\"}", buffer.c_str());
+    snprintf(res_buffer, sizeof(res_buffer), "{\"error\":\"Unknown command: %s\"}", buffer.c_str());
     mqtt_client.publish(mqtt_topic_log.c_str(), res_buffer);
   }
 }
@@ -337,7 +327,6 @@ static void wifi_regular_connect_init() {
   String split_macStr = String(macStr);
   split_macStr.remove(0, 6);
   fallback_ap_ssid += split_macStr;
-  // wm.autoConnect();
   // wm.autoConnect(fallback_ap_ssid.c_str(), fallback_ap_password);
   wm.autoConnect(fallback_ap_ssid.c_str());
   // WiFi.begin(wifi_ssid, wifi_password);
@@ -426,7 +415,7 @@ void FirmwareUpdate(void) {
   while (https_client.connected()) {
     String line = https_client.readStringUntil('\n');
     if (line == "\r") {
-      Serial.println("Headers received");
+      // Serial.println("Headers received");
       break;
     }
   }
@@ -440,161 +429,55 @@ void FirmwareUpdate(void) {
 
   payload.trim();
   /// debug
-  Serial.print("***** payload = ");
-  Serial.println(payload);
-  Serial.print("***** fw_version = ");
-  Serial.println(fw_version);
+  // Serial.print("***** payload = ");
+  // Serial.println(payload);
+  // Serial.print("***** fw_version = ");
+  // Serial.println(fw_version);
   if (payload.equals(fw_version)) {
-    Serial.println("[OTA] Device firmware is up-to-date.");
-    mqtt_client.publish(mqtt_topic_log.c_str(), "[OTA] Device firmware is up-to-date.");
+    snprintf(res_buffer, sizeof(res_buffer), "{\"ota\":\"Device firmware is up-to-date.\",\"ver\":\"%s\"}", payload.c_str());
+    Serial.println(res_buffer);
+    mqtt_client.publish(mqtt_topic_log.c_str(), res_buffer);
   } else {
-    Serial.println("[OTA] New firmware detected.");
-    mqtt_client.publish(mqtt_topic_log.c_str(), "[OTA] New firmware detected. Downloading...");
+    snprintf(res_buffer, sizeof(res_buffer), "{\"ota\":\"New firmware detected (%s). Downloading...\"}", payload.c_str());
+    Serial.println(res_buffer);
+    mqtt_client.publish(mqtt_topic_log.c_str(), res_buffer);
     // ESPhttpUpdate.setLedPin(LED_BUILTIN, LOW); 
-    // t_httpUpdate_return ret = ESPhttpUpdate.update(https_client, URL_FW_BIN, fw_version);
     t_httpUpdate_return ret = ESPhttpUpdate.update(https_client, URL_FW_BIN);
-    /// #TODO: Check if the `update` will prevent the publish.
     // Based on the HTTP update result, display the corresponding message
     switch (ret) {
       case HTTP_UPDATE_FAILED:
-        snprintf(res_buffer, sizeof(res_buffer), "[OTA] HTTP_UPDATE_FAILD Error (%d): %s\n", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+        snprintf(res_buffer, sizeof(res_buffer), "{\"ota\":\"HTTP_UPDATE_FAILD Error (%d): %s\"}", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
         break;
       case HTTP_UPDATE_NO_UPDATES:
-        snprintf(res_buffer, sizeof(res_buffer), "[OTA] HTTP_UPDATE_NO_UPDATES");
+        snprintf(res_buffer, sizeof(res_buffer), "{\"ota\":\"HTTP_UPDATE_NO_UPDATES\"}");
         break;
       case HTTP_UPDATE_OK:
-        snprintf(res_buffer, sizeof(res_buffer), "[OTA] HTTP_UPDATE_OK");
+        snprintf(res_buffer, sizeof(res_buffer), "{\"ota\":\"HTTP_UPDATE_OK\"}");
         break;
       default:
-        snprintf(res_buffer, sizeof(res_buffer), "[OTA] Done. ret=%d", ret);
+        snprintf(res_buffer, sizeof(res_buffer), "{\"ota\":\"Done. ret=%d\"}", ret);
         break;
     }
     Serial.println(res_buffer);
     mqtt_client.publish(mqtt_topic_log.c_str(), res_buffer);
+    if (ret == HTTP_UPDATE_OK) ESP.restart();
   }
 }  
-
-
-
-// void checkForUpdates() {
-//   BearSSL::WiFiClientSecure client;
-//   bool mfln = client.probeMaxFragmentLength(fwUrlBase, 443, 1024);  // server must be the same as in ESPhttpUpdate.update()
-//   Serial.printf("MFLN supported: %s\n", mfln ? "yes" : "no");
-//   if (mfln) {
-//     client.setBufferSizes(1024, 1024);
-//   }
-
-//   static const char serverCACert[] PROGMEM = R"EOF(
-//   -----BEGIN CERTIFICATE-----
-//   MIIDGzCCAgOgAwIBAgIUWd2CIejZK0uuqLPUDTUkA20SyAAwDQYJKoZIhvcNAQEL
-//   BQAwHTEbMBkGA1UEAwwSc2VydmVyb3RhLmRkbnMubmV0MB4XDTIxMDkzMDEyMjkx
-//   MFoXDTIzMDkzMDEyMjkxMFowHTEbMBkGA1UEAwwSc2VydmVyb3RhLmRkbnMubmV0
-//   MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxXtdGLH6IZKnpJYCyyI9
-//   PWN6dQe4wM0J85lqF+omjxmHCY4WQfON6PwIxlhnDDGC4pj/2m2wFkIpg1sDyMmS
-//   Ow8Q0c7Zu3nqDk5gptKWtkjQdmOlsa48jAX49fwvb6Fwyh+Hz94lLuCTQi59LG2S
-//   UPuubXh74ct1pKnc8pwgtIuClSSbgcLCGkhAnLbjTJaet4UemgVcUcorlmqwDKbd
-//   VQR+5DL6biVxy+cLJcwKqH93xrj9hh1I4ktWSBpM/xInlGnA1Fa0qtGrM6m+d3uq
-//   E/GL6MpM0kIvTyxyFVk+LlProQS8zNyRU1KAw51EcT5qcj6FkVMVpSodyARoJPwn
-//   BwIDAQABo1MwUTAdBgNVHQ4EFgQUY6S5QEqFZe7UTVQLAuet07qsW6MwHwYDVR0j
-//   BBgwFoAUY6S5QEqFZe7UTVQLAuet07qsW6MwDwYDVR0TAQH/BAUwAwEB/zANBgkq
-//   hkiG9w0BAQsFAAOCAQEAmxHExHoWclbgdhsIenSyb2wihbC7+QO69dAfQPwJOEQ9
-//   9Lb4h6nmJzuHD+ohFsnNDm3cnKadG7F7to7/LdeG4g5qBNzdMVolsgMTMQ0wyFBx
-//   iTxKPh2FGsGvzftJoYLNXAYXDKtrwK7cxn+HOQOqCw7Q2clMRljva42GQJytDsOx
-//   7F6pVNDnDzo2H1Sni7WzwzIQGb06dUinPY4AhunYRaasbWAU4a4K35x2c5IqCrMW
-//   5TYYCt2KMOaTNLbd0Lh9/ImeJnImAVGN8DivXbtNfhrj+Pl8McHnUztUMkcyHMNR
-//   dVRh0YwsiXtZcu+RWatZB2eJQZJyZx04pIAwgIdhBA==
-//   -----END CERTIFICATE-----
-//   )EOF";
-
-
-//   BearSSL::X509List x509(serverCACert);
-//   client.setTrustAnchors(&x509);
-
-//   setClock();
-//   // Display the message to check for updates
-//   Serial.println("[OTA] Checking for updates...");
-//   //Create an HTTP client object
-//   HTTPClient httpClient;
-//   //Set the HTTP client timeout (milliseconds)
-//   httpClient.setTimeout(5000);
-//   // Set the User-Agent of the HTTP client to identify the source of the request
-//   String userAgent = "ESP8266-OTA-" + WiFi.macAddress();
-//   // Based on the firmware URL, send an HTTP GET request and obtain the response status code
-//   // httpClient.begin(espClient, fwUrlBase);
-//   httpClient.begin(client, fwUrlBase);
-//   int httpCode = httpClient.GET();
-
-//   char res_buffer[96];
-
-//   // If the response status code is 200, it means the request is successful
-//   if (httpCode == 200) {
-//     //Display download update message
-//     Serial.println("[OTA] Downloading update...");
-//     mqtt_client.publish(mqtt_topic_log.c_str(), "[OTA] Downloading update...");
-
-
-
-//     // The line below is optional. It can be used to blink the LED on the board during flashing
-//     // The LED will be on during download of one buffer of data from the network. The LED will
-//     // be off during writing that buffer to flash
-//     // On a good connection the LED should flash regularly. On a bad connection the LED will be
-//     // on much longer than it will be off. Other pins than LED_BUILTIN may be used. The second
-//     // value is used to put the LED on. If the LED is on with HIGH, that value should be passed
-//     // ESPhttpUpdate.setLedPin(LED_BUILTIN, LOW);
-
-//     // // Add optional callback notifiers
-//     // ESPhttpUpdate.onStart(update_started);
-//     // ESPhttpUpdate.onEnd(update_finished);
-//     // ESPhttpUpdate.onProgress(update_progress);
-//     // ESPhttpUpdate.onError(update_error);
-
-//     ESPhttpUpdate.rebootOnUpdate(false); // remove automatic update
-
-//     //Create an HTTP update object
-//     // t_httpUpdate_return ret = ESPhttpUpdate.update(espClient, fwUrlBase, COMPILE_TIME);
-//     t_httpUpdate_return ret = ESPhttpUpdate.update(client, fwUrlBase, COMPILE_TIME);
-
-//     // Based on the HTTP update result, display the corresponding message
-//     switch (ret) {
-//       case HTTP_UPDATE_FAILED:
-//         // Serial.printf("[OTA] HTTP_UPDATE_FAILD Error (%d): %s\n", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
-//         snprintf(res_buffer, sizeof(res_buffer), "[OTA] HTTP_UPDATE_FAILD Error (%d): %s\n", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
-//         break;
-
-//       case HTTP_UPDATE_NO_UPDATES:
-//         // Serial.println("[OTA] HTTP_UPDATE_NO_UPDATES");
-//         snprintf(res_buffer, sizeof(res_buffer), "[OTA] HTTP_UPDATE_NO_UPDATES");
-//         break;
-
-//       case HTTP_UPDATE_OK:
-//         // Serial.println("[OTA] HTTP_UPDATE_OK");
-//         snprintf(res_buffer, sizeof(res_buffer), "[OTA] HTTP_UPDATE_OK");
-//         break;
-//     }
-//   } else {
-//     // If the response status code is not 200, it means the request failed and an error message is displayed.
-//     // Serial.printf("[OTA] HTTP error: %d\n", httpCode);
-//     snprintf(res_buffer, sizeof(res_buffer), "[OTA] HTTP error: %d", httpCode);
-//   }
-//   Serial.println(res_buffer);
-//   mqtt_client.publish(mqtt_topic_log.c_str(), res_buffer);
-//   // Close HTTP client
-//   httpClient.end();
-// }
 
 
 
 // Set time via NTP, as required for x.509 validation
 void setClock() {
   configTime(TZ_Asia_Taipei, "tock.stdtime.gov.tw", "time.stdtime.gov.tw", "asia.pool.ntp.org");
+  // Serial.print("{\"ntp\":\"Waiting for NTP time sync...\"}");
   Serial.print(F("[NTP] Waiting for NTP time sync..."));
-  mqtt_client.publish(mqtt_topic_log_ntp.c_str(), "[NTP] Waiting for NTP time sync...");
+  mqtt_client.publish(mqtt_topic_log_ntp.c_str(), "{\"ntp\":\"Waiting for NTP time sync...\"}");
   time_t now = time(nullptr);
   unsigned long last_check_ntp = 0;
   while (now < 8 * 3600 * 2) {
     if ((millis() - last_check_ntp) >= 100) {
       if (last_check_ntp % 500)
-        Serial.print(F("."));
+        Serial.print(".");
       now = time(nullptr);
       last_check_ntp = millis();
     }
@@ -605,11 +488,14 @@ void setClock() {
   localtime_r(&now, &timeinfo);
 
   char res_buffer[64];
-  snprintf(res_buffer, sizeof(res_buffer), "[NTP] Current local time: %s", asctime(&timeinfo));
+  char time_buffer[20];
+  strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d,%H:%M:%S", &timeinfo);
+  snprintf(res_buffer, sizeof(res_buffer), "{\"ntp\": {\"localtime\":\"%s\"}}", time_buffer);
+  // snprintf(res_buffer, sizeof(res_buffer), "{\"ntp\": {\"localtime\":\"%s\"}}", asctime(&timeinfo));
   mqtt_client.publish(mqtt_topic_log_ntp.c_str(), res_buffer);
   Serial.println(res_buffer);
   // return now;
-  return ;
+  return;
 }
 
 
@@ -632,16 +518,16 @@ String sys_info( ) {
   return json_output;
 }
 String help_msg( ) {
-  help_doc["help"] = "Show this help";
-  help_doc["reboot"] = "Reboot";
-  help_doc["info"] = "Show the system info";
-  help_doc["reset-wifi"] = "Clear and reset the Wi-Fi";
-  help_doc["config"] = "Start the config portal";
-  help_doc["JSONconfig"] = "Modify options from <info> in JSON form";
-  help_doc["ping"] = "Testing";
-  help_doc["time"] = "Time calibration";
-  help_doc["check-ota"] = "Perform the OTA";
-  help_doc["boot_ms"] = system_get_time() / 1000;
+  help_doc["help"]       =  "Show this help";
+  help_doc["reboot"]     =  "Reboot";
+  help_doc["info"]       =  "Show the system info";
+  help_doc["reset-wifi"] =  "Clear and reset the Wi-Fi";
+  help_doc["config"]     =  "Start the config portal";
+  help_doc["JSONconfig"] =  "Modify options from <info> in JSON form";
+  help_doc["ping"]       =  "Testing";
+  help_doc["time"]       =  "Time calibration";
+  help_doc["check-ota"]  =  "Perform the OTA";
+  help_doc["boot_ms"]    =  system_get_time() / 1000;
 	char json_output[measureJson(help_doc) + 1];   // Account for null-terminator, else trailing garbage is returned
 	serializeJson(help_doc, json_output, sizeof(json_output));
   return json_output;
@@ -661,6 +547,7 @@ String state_logger(bool state) {
   state_doc["t_ms"] = system_get_time() / 1000;
   state_doc["sensor"] = state;
   state_doc["pub_ms"] = mqtt_sensor_update_ms;
+  state_doc["heap"] = ESP.getFreeHeap();
 	char json_output[measureJson(state_doc) + 1];   // Account for null-terminator, else trailing garbage is returned
 	serializeJson(state_doc, json_output, sizeof(json_output));
   return json_output;

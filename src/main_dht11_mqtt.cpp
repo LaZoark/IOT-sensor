@@ -20,10 +20,9 @@ extern "C" {
 }
 // URL for the OTA firmware
 // String fwUrlBase = "https://raw.githubusercontent.com/LaZoark/IOT-sensor/main/firmware.bin";
-const String fw_version = "1.8.3"; 
-#define URL_FW_VERSION "/LaZoark/IOT-sensor/main/version.txt"
-// #define URL_FW_BIN "https://raw.githubusercontent.com/LaZoark/IOT-sensor/main/firmware.bin"
-// #define URL_FW_BIN "https://raw.githubusercontent.com/LaZoark/IOT-sensor/dev/.pio/build/d1_mini/firmware.bin"
+const String fw_version = "1.8.4"; 
+// #define URL_FW_VERSION "/LaZoark/IOT-sensor/main/version.txt"
+#define URL_FW_VERSION "/LaZoark/IOT-sensor/dev/version.txt"
 #define URL_FW_BIN_PREFIX "https://raw.githubusercontent.com/LaZoark/IOT-sensor/dev/.pio/build/"
 #define URL_FW_BIN_FOOT "/firmware.bin"
 #define URL_FW_BIN URL_FW_BIN_PREFIX PROJECT URL_FW_BIN_FOOT

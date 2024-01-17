@@ -329,17 +329,16 @@ void callback(char *topic, byte *payload, unsigned int length) {
       // snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unsupported JSON config: %s\"}", buffer.data());
       snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unsupported JSON config: %s\"}", buffer.c_str());
     }
-    // mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), res_buffer);
+    mqtt_client.publish(mqtt_topic_log.c_str(), res_buffer);
     Serial.println(res_buffer);
-  }
-  else {
+  } else {
     // Serial.printf("[%s]: Unknown command: \"%s\"", topic, buffer.data());
     Serial.printf("[%s]: Unknown command: \"%s\"", topic, buffer.c_str());
     Serial.printf("\n----------------------- %lu(ms) -----------------------\n", millis());
     // snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unknown command: %s\"}", buffer.data());
     snprintf(res_buffer, sizeof(res_buffer), "{\"error\": \"Unknown command: %s\"}", buffer.c_str());
+    mqtt_client.publish(mqtt_topic_log.c_str(), res_buffer);
   }
-  mqtt_client.publish(String(mqtt_topic + String("/") + String(macStr) + String("/log")).c_str(), res_buffer);
 }
 
 #ifdef CONFIG_USING_ENTERPRISE_WIFI

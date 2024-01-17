@@ -18,15 +18,8 @@ extern "C" {
 #include "wpa2_enterprise.h"
 #include "c_types.h" 
 }
-// URL for the OTA firmware
-// String fwUrlBase = "https://raw.githubusercontent.com/LaZoark/IOT-sensor/main/firmware.bin";
-const String fw_version = "1.8.4-beta"; 
-// #define URL_FW_VERSION "/LaZoark/IOT-sensor/main/version.txt"
-#define URL_FW_VERSION "/LaZoark/IOT-sensor/dev/version.txt"
-#define URL_FW_BIN_PREFIX "https://raw.githubusercontent.com/LaZoark/IOT-sensor/dev/.pio/build/"
-#define URL_FW_BIN_FOOT "/firmware.bin"
-#define URL_FW_BIN URL_FW_BIN_PREFIX PROJECT URL_FW_BIN_FOOT
 
+const char* fw_version = FW_VERSION;
 const char* host = "raw.githubusercontent.com";
 const int httpsPort = 443;
 
@@ -75,7 +68,7 @@ const char *wifi_ssid = __WIFI_SSID;          // Enter your WiFi name
 const char *wifi_password = __WIFI_PASSWORD;  // Enter WiFi password
 #endif
 // Fallback hotspot AP
-String fallback_ap_ssid = "esp-fallback-";
+String fallback_ap_ssid = AP_PREFIX;
 const char *fallback_ap_password = "12345678";
 // Wi-Fi Manager and configs
 WiFiManager wm;
@@ -142,7 +135,8 @@ String mqtt_topic_log_ntp;
 JsonDocument pub_doc, help_doc, log_doc, sub_doc, state_doc;  // Allocate memory for the sub_doc array.
 
 void setup() {
-  wm.setConfigPortalTimeout(120);       // Set a timeout for captive portal
+  wm.setBreakAfterConfig(true);     // Save parameters even on wifi fail or empty (will call `saveConfigCallback`).
+  wm.setConfigPortalTimeout(120);   // Set a timeout for captive portal
   wm.addParameter(&custom_mqtt_broker);
   wm.addParameter(&custom_mqtt_topic);
   wm.addParameter(&custom_mqtt_username);
@@ -172,7 +166,7 @@ void setup() {
   wifi_connect_init();
 
   ArduinoOTA.setHostname(client_id.c_str());
-  ArduinoOTA.setPassword(__OTA_PASSWORD);
+  ArduinoOTA.setPassword(__OTA_LOCAL_PASSWORD);
   ArduinoOTA.onStart([]() {
   String type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
   // NOTE: if updating FS this would be the place to unmount FS using FS.end()
@@ -194,13 +188,13 @@ void setup() {
   mqtt_client.setServer(mqtt_broker, mqtt_port);
   mqtt_client.setCallback(callback);
   mqtt_client.setBufferSize(__MQTT_MAX_PACKET_SIZE);
-  mqtt_connect();
+  // mqtt_connect();
   mqtt_topic_mac = String(mqtt_topic) + "/" + macStr;
   mqtt_topic_log = String(mqtt_topic) + "/" + macStr + "/log";
   mqtt_topic_data = String(mqtt_topic) + "/" + macStr + "/data";
   mqtt_topic_state = String(mqtt_topic) + "/" + macStr + "/state";
   mqtt_topic_log_ntp = String(mqtt_topic) + "/" + macStr + "/log/ntp";
-  ESPhttpUpdate.rebootOnUpdate(false); // remove automatic update
+  ESPhttpUpdate.rebootOnUpdate(false); // remove automatic reboot on update
 }
 
 
@@ -251,15 +245,15 @@ void callback(char *topic, byte *payload, unsigned int length) {
   } else if (buffer == "reset-wifi") {
     mqtt_client.publish(mqtt_topic_mac.c_str(), "[INFO] Resetting the Wi-Fi (resetSettings)");
     wm.resetSettings();
-  } else if (buffer == "config") {
+  } else if (buffer == "config") {  /// # BUG: It appears to OOM when checking ota (check-ota) after connected to another Wi-Fi. Workaround: use "reset-wifi"
     mqtt_client.publish(mqtt_topic_mac.c_str(), "[INFO] Entering config mode (startConfigPortal)");
     wm.startConfigPortal(fallback_ap_ssid.c_str());
   } else if (buffer == "ping") {
     mqtt_client.publish(mqtt_topic_log.c_str(), String("{\"ping\":\"" + client_id + "\",\"t\":" + system_get_time() + "}").c_str());  // nano second
     Serial.println(String("{\"ping\":\"" + client_id + "\",\"t\":" + system_get_time() + "}"));
   } else if (buffer == "check-ota") {
-    mqtt_client.publish(mqtt_topic_log.c_str(), String("{\"ota\":\"Checking latest firmware... (current=" + fw_version + ")\"}").c_str());
-    Serial.println(String("{\"ota\":\"Checking latest firmware... (current=" + fw_version + ")\"}"));
+    mqtt_client.publish(mqtt_topic_log.c_str(), String("{\"ota\":\"Checking latest firmware... (current=" + String(fw_version) + ")\"}").c_str());
+    Serial.println(String("{\"ota\":\"Checking latest firmware... (current=" + String(fw_version) + ")\"}"));
     FirmwareUpdate();
   } else if (buffer == "time") {
     mqtt_client.publish(mqtt_topic_log_ntp.c_str(), "{\"ntp\":\"Checking time from NTP...\"}");
@@ -326,7 +320,7 @@ static void wifi_enterprise_connect_init(void) {
 static void wifi_regular_connect_init() {
   String split_macStr = String(macStr);
   split_macStr.remove(0, 6);
-  fallback_ap_ssid += split_macStr;
+  fallback_ap_ssid = AP_PREFIX + split_macStr;
   // wm.autoConnect(fallback_ap_ssid.c_str(), fallback_ap_password);
   wm.autoConnect(fallback_ap_ssid.c_str());
   // WiFi.begin(wifi_ssid, wifi_password);
@@ -347,17 +341,17 @@ void mqtt_connect() {
       Serial.println("MQTT Connected!");
     else
     {
-      Serial.printf("No luck, retrying... <%d/%d> (with state %d)", mqtt_watchdog--, __MQTT_WATCHDOG, mqtt_client.state());
-      delay(2000);
+      Serial.printf("No luck, retrying... <%d/%d> (with state %d)\n", mqtt_watchdog--, __MQTT_WATCHDOG, mqtt_client.state());
+      delay(1000);
     }
     if (mqtt_watchdog == 0)
       ESP.restart();
   }
   String temp_payload = sys_info();
-  mqtt_client.publish(mqtt_topic_log.c_str(), temp_payload.c_str());
   Serial.println(temp_payload);
-  mqtt_client.subscribe((String(mqtt_topic) + String(__MQTT_TOPIC_CMD)).c_str());                         // For broadcast
-  mqtt_client.subscribe((String(mqtt_topic) + "/" + String(macStr) + String(__MQTT_TOPIC_CMD)).c_str());  // For specifiy by MAC
+  mqtt_client.publish(mqtt_topic_log.c_str(), temp_payload.c_str());
+  mqtt_client.subscribe((String(mqtt_topic) + __MQTT_TOPIC_CMD).c_str());                         // For broadcast
+  mqtt_client.subscribe((String(mqtt_topic) + "/" + macStr + __MQTT_TOPIC_CMD).c_str());          // For specifiy by MAC
 }
 
 
@@ -367,7 +361,6 @@ void mqtt_connect() {
 //   delay(long(interval/2));
 //   digitalWrite(ledPin, LOW);
 //   delay(long(interval/2));
-
 
   // int ledState = LOW;             // ledState used to set the LED
   // // Generally, you should use "unsigned long" for variables that hold time
@@ -403,8 +396,13 @@ void FirmwareUpdate(void) {
   char res_buffer[80];
   https_client.setTrustAnchors(&cert);
   https_client.setTimeout(10000);
-  if (!https_client.connect(host, httpsPort)) {
-    Serial.println("Connection failed");
+  int res_code = https_client.connect(host, httpsPort);
+  if (!res_code) {
+    // Serial.printf("Connection failed: res=%d, (status=%d)\n", res_code, https_client.status());
+    Serial.printf("Connection failed: res=%d\n", res_code);
+    Serial.println(https_client.status());
+    Serial.printf("host: %s\n", host);
+    Serial.printf("port: %d\n", httpsPort);
     return;
   }
   https_client.print(

@@ -1,3 +1,7 @@
+/// # Firmware version
+#define FW_VERSION "1.8.4-beta"
+#define AP_PREFIX "esp-fallback-"
+
 /// # Wi-Fi Config
 #define CONFIG_USING_REGULAR_WIFI 1
 #define __WIFI_SSID "*******"
@@ -8,23 +12,29 @@
 #define __ENTERPRISE_WIFI_USERNAME "12345678"
 #define __ENTERPRISE_WIFI_PASSWORD "12345678"
 
-/// # OTA Firmware
-#define __OTA_PASSWORD "12345678"
-
 /// # MQTT Informations
 #define __MQTT_BROKER "mqtt.open.domain.org"
-// #define __MQTT_TOPIC_CMD "homeassistant/sensor/dht11/cmd"
-// #define __MQTT_TOPIC "homeassistant/sensor/dht11/reading_area"
 #define __MQTT_TOPIC_CMD "/cmd"
 #define __MQTT_TOPIC "SENSOR/dht11/A1"
-// #define __MQTT_TOPIC "SENSOR/dht11/window_area"
 #define __MQTT_USERNAME "admin"
 #define __MQTT_PASSWORD "12345678"
 #define __MQTT_PORT "1883"
 #define __MQTT_WATCHDOG 10
-// Keep_Alive_Interval : 60
+#define __MQTT_MAX_PACKET_SIZE 384          // overwrite the packet limit (default: 256)
 
+/// # Update timing and interval
 #define __UPDATE_INTERVAL_MS 20000
 #define __UPDATE_SYS_INTERVAL_MS 10000
-#define __MINIMAL_UPDATE_INTERVAL_MS 4000
-#define __FORCE_UPDATE_DELAY_MS 3000
+#define __MINIMAL_UPDATE_INTERVAL_MS 4000   // constrain the publish rate for the sensor
+#define __FORCE_UPDATE_DELAY_MS 3000        // force publish whenever the update interval was modified
+
+/// # OTA Firmware locally
+#define __OTA_LOCAL_PASSWORD "12345678"
+
+/// # Self-OTA 
+#define URL_FW_BIN_PREFIX "https://raw.githubusercontent.com/LaZoark/IOT-sensor/dev/.pio/build/"
+#define URL_FW_BIN_FOOT "/firmware.bin"
+// URL for the OTA firmware
+#define URL_FW_BIN URL_FW_BIN_PREFIX PROJECT URL_FW_BIN_FOOT
+// https://raw.githubusercontent.com/LaZoark/IOT-sensor/dev/version.txt
+#define URL_FW_VERSION "/LaZoark/IOT-sensor/dev/version.txt"

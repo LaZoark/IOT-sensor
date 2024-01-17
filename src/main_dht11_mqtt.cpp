@@ -20,7 +20,7 @@ extern "C" {
 }
 // URL for the OTA firmware
 // String fwUrlBase = "https://raw.githubusercontent.com/LaZoark/IOT-sensor/main/firmware.bin";
-const String fw_version = "1.8.1"; 
+const String fw_version = "1.8.3"; 
 #define URL_FW_VERSION "/LaZoark/IOT-sensor/main/version.txt"
 // #define URL_FW_BIN "https://raw.githubusercontent.com/LaZoark/IOT-sensor/main/firmware.bin"
 // #define URL_FW_BIN "https://raw.githubusercontent.com/LaZoark/IOT-sensor/dev/.pio/build/d1_mini/firmware.bin"
@@ -440,16 +440,17 @@ void FirmwareUpdate(void) {
   Serial.println("==========");
 
   payload.trim();
-  // Serial.print("***** payload = ");
-  // Serial.println(payload);
-  // Serial.print("***** fw_version = ");
-  // Serial.println(fw_version);
+  /// debug
+  Serial.print("***** payload = ");
+  Serial.println(payload);
+  Serial.print("***** fw_version = ");
+  Serial.println(fw_version);
   if (payload.equals(fw_version)) {
-    Serial.println("[OTA] Device already on latest firmware version.");
-    mqtt_client.publish(mqtt_topic_log.c_str(), "[OTA] Device already on latest firmware version.");
+    Serial.println("[OTA] Device firmware is up-to-date.");
+    mqtt_client.publish(mqtt_topic_log.c_str(), "[OTA] Device firmware is up-to-date.");
   } else {
     Serial.println("[OTA] New firmware detected.");
-    mqtt_client.publish(mqtt_topic_log.c_str(), "[OTA] New firmware detected.");
+    mqtt_client.publish(mqtt_topic_log.c_str(), "[OTA] New firmware detected. Downloading...");
     // ESPhttpUpdate.setLedPin(LED_BUILTIN, LOW); 
     // t_httpUpdate_return ret = ESPhttpUpdate.update(https_client, URL_FW_BIN, fw_version);
     t_httpUpdate_return ret = ESPhttpUpdate.update(https_client, URL_FW_BIN);

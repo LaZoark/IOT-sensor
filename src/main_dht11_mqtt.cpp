@@ -53,8 +53,6 @@ X509List cert(trustRoot);
 extern const unsigned char caCert[] PROGMEM;
 extern const unsigned int caCertLen;
 
-#define DHT11_PIN 2
-#define ERROR_SENSOR_STR "Can't read DHT11. Please check the hardware or use \"help\" & \"info\" under \"/cmd\" to debug."
 #define COMPILE_TIME __DATE__ " " __TIME__
 
 // Wi-Fi config
@@ -101,7 +99,16 @@ unsigned long last_update_sensor = 0;
 unsigned long last_update_sys = 0;
 char macStr[13] = { 0 };
 String client_id = "esp8266-sensor-";
-DHT dht11(DHT11_PIN, DHT11, 11);
+#ifdef DHT11_PIN
+#define SENSOR_PIN DHT11_PIN
+#define SENSOR_TYPE DHT11
+#define ERROR_SENSOR_STR "Can't read DHT11. Please check the hardware or use \"help\" & \"info\" under \"/cmd\" to debug."
+#elif DHT22_PIN
+#define SENSOR_PIN DHT22_PIN
+#define SENSOR_TYPE DHT22
+#define ERROR_SENSOR_STR "Can't read DHT22. Please check the hardware or use \"help\" & \"info\" under \"/cmd\" to debug."
+#endif
+DHT dht_sensor(SENSOR_PIN, SENSOR_TYPE, 11);
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
 
@@ -155,8 +162,8 @@ void setup() {
   client_id += String(macStr);
 
   WiFi.mode(WIFI_STA);
-  pinMode(DHT11_PIN, INPUT);
-  dht11.begin();
+  pinMode(SENSOR_PIN, INPUT);
+  dht_sensor.begin();
   Serial.begin(115200);
   // Serial.setDebugOutput(true);
   Serial.printf("\nSDK version: %s\n", system_get_sdk_version());
@@ -209,10 +216,10 @@ void loop()
 // Sense and publish the data
   if ( (millis() - last_update_sensor) >= mqtt_sensor_update_ms ) {
     float temperature=0, humidity=0;
-    sensor_state = dht11.read();
+    sensor_state = dht_sensor.read();
     if (sensor_state) {
-      humidity = dht11.readHumidity();
-      temperature = dht11.readTemperature();
+      humidity = dht_sensor.readHumidity();
+      temperature = dht_sensor.readTemperature();
     } else {
       Serial.printf("%s %lu(ms)\n", ERROR_SENSOR_STR, millis());
     }

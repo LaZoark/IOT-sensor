@@ -270,6 +270,18 @@ void callback(char *topic, byte *payload, unsigned int length) {
       } else {
         snprintf(res_buffer, sizeof(res_buffer), "{\"error\":\"%d ms is too short. The value must larger than %d.\"}", _pub_ms, __MINIMAL_UPDATE_INTERVAL_MS);
       } 
+    } else if (!sub_doc["cpu_mhz"].isNull()) {
+      int _cpu_mhz = sub_doc["cpu_mhz"];
+      if (_cpu_mhz == SYS_CPU_80MHZ || _cpu_mhz == SYS_CPU_160MHZ) {
+        snprintf(res_buffer, sizeof(res_buffer), "{\"config\":\"CPU frequency from %d set to %d\"}", ESP.getCpuFreqMHz(), _cpu_mhz);
+        if (!system_update_cpu_freq(_cpu_mhz)) {
+          snprintf(res_buffer, sizeof(res_buffer), "{\"error\":\"CPU frequency failed from setting %d to %d\"}", ESP.getCpuFreqMHz(), _cpu_mhz);
+          mqtt_client.publish(mqtt_topic_log.c_str(), res_buffer);
+          Serial.println(res_buffer);
+          }
+      } else {
+        snprintf(res_buffer, sizeof(res_buffer), "{\"error\":\"%d mhz is not allowed. Only 80 & 160 are supported.\"}", _cpu_mhz);
+      } 
     } else {
       snprintf(res_buffer, sizeof(res_buffer), "{\"error\":\"Unsupported JSON config: %s\"}", buffer.c_str());
     }

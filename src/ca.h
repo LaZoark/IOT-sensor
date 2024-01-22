@@ -1,35 +1,27 @@
-extern "C" {
-// #include "user_interface.h"
-// #include "wpa2_enterprise.h"
-#include "c_types.h"
-}
-static u8 ca_cert[] = "-----BEGIN CERTIFICATE-----\n"
-               "MIIFETCCA/mgAwIBAgIJAO0ntD34r/+QMA0GCSqGSIb3DQEBCwUAMIGiMQswCQYD\n"
-               "VQQGEwJVUzEXMBUGA1UECAwOTm9ydGggQ2Fyb2xpbmExDzANBgNVBAcMBkR1cmhh\n"
-               "bTEeMBwGA1UECgwVTWl0Y2hlbGwvVHJhbXBlciBJbmMuMR8wHQYJKoZIhvcNAQkB\n"
-               "FhBidXJ0bXNAZ21haWwuY29tMSgwJgYDVQQDDB9CdXJ0IFNlbGYgQ2VydGlmaWNh\n"
-               "dGUgQXV0aG9yaXR5MB4XDTE4MDEyMzE1NTgxOFoXDTE4MDMyNDE1NTgxOFowgaIx\n"
-               "CzAJBgNVBAYTAlVTMRcwFQYDVQQIDA5Ob3J0aCBDYXJvbGluYTEPMA0GA1UEBwwG\n"
-               "RHVyaGFtMR4wHAYDVQQKDBVNaXRjaGVsbC9UcmFtcGVyIEluYy4xHzAdBgkqhkiG\n"
-               "9w0BCQEWEGJ1cnRtc0BnbWFpbC5jb20xKDAmBgNVBAMMH0J1cnQgU2VsZiBDZXJ0\n"
-               "aWZpY2F0ZSBBdXRob3JpdHkwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIB\n"
-               "AQC2O2m4JCmqimeztaZ8JasIuZqksrxvCjyWpkykoGzoR6v1/kDSuLgdp7EmtLKN\n"
-               "vOJPQ2ea0yVvkFf0dQYcgDhNdAsXcqskMOprS+jefzlLQUbU1jTk+AOSiOcmxWT1\n"
-               "H8uYhSp/1TkkWDM8dVO9RRIQyigVinsJNhdPyUVsTaQh3s29AL8CboixUNZWngOo\n"
-               "d1+66lwy4N+3hXACJWlurgvc0q7RfqSqfJY/+lugfID0ANpGQqqu1Dq2IXZbLyx9\n"
-               "roOPpC+fqX2wn5g9+RuA18OY/GPtkHc6clAoiJDGXsTRpffgsI5spdJ26WknbhO/\n"
-               "3Q2vQJ2Q5m/QvSp55qOM5nevAgMBAAGjggFGMIIBQjAdBgNVHQ4EFgQUT3hChU84\n"
-               "EEXHesDdKOtPqfhrg68wgdcGA1UdIwSBzzCBzIAUT3hChU84EEXHesDdKOtPqfhr\n"
-               "g6+hgaikgaUwgaIxCzAJBgNVBAYTAlVTMRcwFQYDVQQIDA5Ob3J0aCBDYXJvbGlu\n"
-               "YTEPMA0GA1UEBwwGRHVyaGFtMR4wHAYDVQQKDBVNaXRjaGVsbC9UcmFtcGVyIElu\n"
-               "Yy4xHzAdBgkqhkiG9w0BCQEWEGJ1cnRtc0BnbWFpbC5jb20xKDAmBgNVBAMMH0J1\n"
-               "cnQgU2VsZiBDZXJ0aWZpY2F0ZSBBdXRob3JpdHmCCQDtJ7Q9+K//kDAPBgNVHRMB\n"
-               "Af8EBTADAQH/MDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly93d3cuZXhhbXBsZS5v\n"
-               "cmcvZXhhbXBsZV9jYS5jcmwwDQYJKoZIhvcNAQELBQADggEBADNmDxddEh1XSo8J\n"
-               "fanCRuYqngpVFtKCzRNCtQ7aOAPrj6gRMtMAqQhlYmcbxjaVOCboAvJ8evY8x5We\n"
-               "YU6eIAmg95PlDws8EvcVQhO2ZYcuOHTvdu5Q4Ior0oXaCfqdS35YcPW7pRGprY/x\n"
-               "w7kbG84FFatpXPuDGQB65haqQ2KXPrILiE/jAKpTu9EBLEEN4uIAuxbB6unARovX\n"
-               "YoXIQHFc32bZAjihquvs4J7FNkcSr3lJpuv03dryqMB+Qn3G8yM7PFLNL2QyS0Zu\n"
-               "UbS5kDO7UqbTjtrUDolp5sUNvyrkX5ILYfZeEeaHqAlA20SFqNG7BcTY222NsCft\n"
-               "yNXqX1c=\n"
-               "-----END CERTIFICATE-----";
+#include <WiFiClientSecure.h>
+
+// DigiCert High Assurance EV Root CA
+const char trustRoot[] PROGMEM = R"EOF(
+-----BEGIN CERTIFICATE-----
+MIIDrzCCApegAwIBAgIQCDvgVpBCRrGhdWrJWZHHSjANBgkqhkiG9w0BAQUFADBh
+MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3
+d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBD
+QTAeFw0wNjExMTAwMDAwMDBaFw0zMTExMTAwMDAwMDBaMGExCzAJBgNVBAYTAlVT
+MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j
+b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IENBMIIBIjANBgkqhkiG
+9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4jvhEXLeqKTTo1eqUKKPC3eQyaKl7hLOllsB
+CSDMAZOnTjC3U/dDxGkAV53ijSLdhwZAAIEJzs4bg7/fzTtxRuLWZscFs3YnFo97
+nh6Vfe63SKMI2tavegw5BmV/Sl0fvBf4q77uKNd0f3p4mVmFaG5cIzJLv07A6Fpt
+43C/dxC//AH2hdmoRBBYMql1GNXRor5H4idq9Joz+EkIYIvUX7Q6hL+hqkpMfT7P
+T19sdl6gSzeRntwi5m3OFBqOasv+zbMUZBfHWymeMr/y7vrTC0LUq7dBMtoM1O/4
+gdW7jVg/tRvoSSiicNoxBN33shbyTApOB6jtSj1etX+jkMOvJwIDAQABo2MwYTAO
+BgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUA95QNVbR
+TLtm8KPiGxvDl7I90VUwHwYDVR0jBBgwFoAUA95QNVbRTLtm8KPiGxvDl7I90VUw
+DQYJKoZIhvcNAQEFBQADggEBAMucN6pIExIK+t1EnE9SsPTfrgT1eXkIoyQY/Esr
+hMAtudXH/vTBH1jLuG2cenTnmCmrEbXjcKChzUyImZOMkXDiqw8cvpOp/2PV5Adg
+06O/nVsJ8dWO41P0jmP6P6fbtGbfYmbW0W5BjfIttep3Sp+dWOIrWcBAI+0tKIJF
+PnlUkiaY4IBIqDfv8NZ5YBberOgOzW6sRBc4L0na4UU+Krk2U886UAb3LujEV0ls
+YSEY1QSteDwsOoBrp+uvFRTp2InBuThs4pFsiv9kuXclVzDAGySj4dzp30d8tbQk
+CAUw7C29C79Fv1C5qfPrmAESrciIxpg0X40KPMbp1ZWVbd4=
+-----END CERTIFICATE-----
+)EOF";
